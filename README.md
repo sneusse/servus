@@ -7,7 +7,28 @@ Servus serializer spec and example implementation(s)
 
 # Why ?
 
--- To clarify.
+* Like messagepack
+```lua
+    {compact = true, schema = 0}
+
+    => 18b
+    => l:schema\155;compact\001
+```
+
+* But slightly different
+```lua
+    {compact = true, schema = 0, no = "schema"}
+    
+    => 24b
+    => \018\165m;compact\001:schema\1556no\017
+```
+* Mandatory xkcd
+
+  
+![https://xkcd.com/927/](https://imgs.xkcd.com/comics/standards.png)
+https://xkcd.com/927/
+
+-- Todo: clarify.
 
 # Draft
 
@@ -23,8 +44,14 @@ Servus serializer spec and example implementation(s)
 
 * Be able to encode immediate values from -2 -> 100
 * Be able to cache/reference values during (de)serialization
+* Have clearly defined extension points for
+  * The spec
+  * The encoder/decoders
 * Easy to implement
 * General purpose 
+
+### Maybe goals
+* Have schemas
 
 ### Details
 
@@ -40,22 +67,25 @@ Bits    7......0
 
 * No header assumes: 00000000 => Version 0 (this document), UTF8 strings, LE Byte order
 
-* Command Byte:
+* Control Byte:
     * First byte should be interpreted as _unsigned char_!
-    * **SPECIAL-CASE:** `SERVUS_SREF_START`
-        * If this is the first byte to decode, this indicates the start of a small reftable < 32 items
-        * Only valid if 0 < N < 32
-        * The 0-COUNT in this case is considerd _reserved for future use_
+    * **SPECIAL-CASE:** `REF/REFT`
+        * If the first byte to decode is a `REF/REFT` byte, this indicates that references are used
+        * In this case `REFT` semantics apply and the data should be interpreted as an array of references
+        * The 0-length short table `REFT` (`SERVUS_S_REF_00`) is considerd _reserved for future use and should not be used_
+        * In any later occurence of `REF/REFT` control bytes, they should be considered as references to data
   
 * Stateless semantics:
     * `VAL`: (single) value
-    * `CVAL`: compound value (self-reference allowed in reftable!)
-    * `CMD`: command
+    * `CVAL`: compound value (self-references allowed)
+    * `CMD`: a command which must no be included in value counts
     * `CONST`: constant
+    * `REF/REFT`: a reference or a reference table
+    * `_RES`: reserved, ignore this for now
 
 * User Types/Tags:
     * All user types are expected to add/remove exactly one or two elements to/from the current scope
-    * The resulting item be used as an item for the current scope
+    * The resulting item is to be used as an item for the current scope
     * e.g.:
         - we are deserializing a map
         - we've finishd parsing the key ("mykey")
@@ -72,71 +102,81 @@ Bits    7......0
               - create a new map/object array
               - parse item 0 to element 0
               - parse item 1 to element 1
-        - when using strict mode throw an exception?
+              - when using strict mode throw an exception?
 
-### Command byte broken down
+### Control byte broken down
 
 ```
-    NAME                  TYPE                        SEMANTICS    following data in VALUES/bytes
-========================= =========================== ============ ==========================================
-  0 SERVUS_NULL           nil                         VAL          no bytes 
-  1 SERVUS_TRUE           true                        VAL          no bytes 
-  2 SERVUS_FALSE          false                       VAL          no bytes 
-  3 SERVUS_FLOAT_32       float32                     VAL          4 bytes (float32 LE)
-  4 SERVUS_FLOAT_64       float64                     VAL          8 bytes (float64 LE)
-  5 SERVUS_INT_8          int8                        VAL          1 byte (int8)
-  6 SERVUS_UINT_8         uint8                       VAL          1 byte (uint8)
-  7 SERVUS_INT_16         int16                       VAL          2 bytes (int16 LE)
-  8 SERVUS_UINT_16        uint16                      VAL          2 bytes (uint16 LE)
-  9 SERVUS_INT_32         int32                       VAL          4 bytes (int32 LE)
- 10 SERVUS_UINT_32        uint32                      VAL          4 bytes (uint32 LE)
- 11 SERVUS_INT_64         int64                       VAL          8 bytes (int64 LE)
- 12 SERVUS_UINT_64        uint64                      VAL          8 bytes (uint64 LE)
- 13 SERVUS_BSTR_8         string/bytearray            VAL          1 len (uint8) + N < 2^8 bytes 
- 14 SERVUS_BSTR_16        string/bytearray            VAL          2 len (uint16 LE) + N < 2^16 bytes 
- 15 SERVUS_BSTR_32        string/bytearray            VAL          4 len (uint32 LE) + N < 2^32 bytes 
- 16 SERVUS_MAP_8          map/obj                     CVAL         1 len (uint8) + N < 2^8 VALUES 
- 17 SERVUS_MAP_16         map/obj                     CVAL         2 len (uint16 LE) + N < 2^16 VALUES 
- 18 SERVUS_MAP_32         map/obj                     CVAL         4 len (uint32 LE) + N < 2^32 VALUES 
- 19 SERVUS_ARR_8          object array                CVAL         1 len (uint8) + N < 2^8 VALUES 
- 20 SERVUS_ARR_16         object array                CVAL         2 len (uint16 LE) + N < 2^16 VALUES 
- 21 SERVUS_ARR_32         object array                CVAL         4 len (uint32 LE) + N < 2^32 VALUES     
- 22 SERVUS_USERTAG1_8     user type 1                 VAL          1 byte ID + 1 VALUE
- 23 SERVUS_USERTAG1_16    user type 1                 VAL          2 byte ID (uint16 LE) + 1 VALUES
- 24 SERVUS_USERTAG1_32    user type 1                 VAL          4 byte ID (uint32 LE) + 1 VALUES
- 25 SERVUS_USERTAG2_8     user type 2                 VAL          1 byte ID + 2 VALUES 
- 26 SERVUS_USERTAG2_16    user type 2                 VAL          2 byte ID (uint16 LE) + 2 VALUES 
- 27 SERVUS_USERTAG2_32    user type 2                 VAL          4 byte ID (uint32 LE) + 2 VALUES
- 28 SERVUS_REF_8          ref                         VAL          1 u8 REF INDEX (1 byte)
- 29 SERVUS_REF_16         ref                         VAL          1 u16 REF INDEX (2 bytes, LE)
- 30 SERVUS_REFTAB_8       reftable                    CVAL         1 len (uint8) + N < 2^8 VALUES 
- 31 SERVUS_REFTAB_16      reftable                    CVAL         2 len (uint16 LE) + N < 2^16 VALUES 
- 32 SERVUS_RESERVED       -- reserved --
- 33 SERVUS_HEADER         optional header             CMD          COMMAND: 1 byte
- 34 SERVUS_STATE_8        stateful 8                  CMD          COMMAND: stateful command (1 byte)
- 35 SERVUS_STATE_16       stateful 16                 CMD          COMMAND: stateful command (2 bytes LE)
- 36 SERVUS_STATE_32       stateful 32                 CMD          COMMAND: stateful command (4 bytes LE)
- 37 SERVUS_STATE_64       stateful 64                 CMD          COMMAND: stateful command (8 bytes LE)  
-------------------------- --------------------------- ------------ ------------------------------------------
- 38 SERVUS_SREF_START     short ref/reftable          VAL/CVAL     no bytes (VAL) / N < 32 VALUES (CVAL)
-    SERVUS_SREF_COUNT                                 CONST(32)
- 70 SERVUS_SBSTR_START    short string/bytearray      VAL          N < 32 bytes 
-    SERVUS_SBSTR_COUNT                                CONST(32)
-102 SERVUS_SMAP_START     short map                   VAL          N < 16 VALUES 
-    SERVUS_SMAP_COUNT                                 CONST(16)
-118 SERVUS_SARR_START     short array                 VAL          N < 16 VALUES 
-    SERVUS_SARR_COUNT                                 CONST(16)
-134 SERVUS_SUSER1_START   short user type 1           VAL          1 VALUES 
-    SERVUS_SUSER1_COUNT                               CONST(8)
-142 SERVUS_SUSER2_START   short user type 2           VAL          2 VALUES 
-    SERVUS_SUSER2_COUNT                               CONST(8)
-150 SERVUS_IMM_START      immediate ints -5 -> 100    CONST(150)   no bytes 
-    SERVUS_IMM_OFFSET                                 CONST(-155)  no bytes 
-------------------------- --------------------------- ------------ ------------------------------------------
+                      Cluster
+                            |
+Label        Byte value     |   Type/interpreted value      Semantics
+===============================================================================       
+SERVUS_NULL           0     A   nil                         VAL
+SERVUS_TRUE           1     A   true                        VAL
+SERVUS_FALSE          2     A   false                       VAL
+SERVUS_RESERVED       3         -- reserved --               _RES
+SERVUS_INT_8          4     B   int8                        VAL
+SERVUS_INT_16         5     B   int16                       VAL
+SERVUS_INT_32         6     B   int32                       VAL
+SERVUS_INT_64         7     B   int64                       VAL
+SERVUS_UINT_8         8     B   uint8                       VAL
+SERVUS_UINT_16        9     B   uint16                      VAL
+SERVUS_UINT_32       10     B   uint32                      VAL
+SERVUS_UINT_64       11     B   uint64                      VAL
+SERVUS_FLOAT_32      12     B   float32                     VAL
+SERVUS_FLOAT_64      13     B   float64                     VAL
+SERVUS_REF_8         14     C   ref/reftable                REF/REFT
+SERVUS_REF_16        15     C   ref/reftable                REF/REFT
+SERVUS_REF_32        16     C   ref/reftable                REF/REFT
+SERVUS_S_REF_00      17     C   short ref/reftable          REF/REFT
+SERVUS_S_REF_31      48     C   short ref/reftable          REF/REFT
+SERVUS_BSTR_8        49     D   string/bytearray            VAL
+SERVUS_BSTR_16       50     D   string/bytearray            VAL
+SERVUS_BSTR_32       51     D   string/bytearray            VAL
+SERVUS_S_BSTR_00     52     D   short string/bytearray      VAL
+SERVUS_S_BSTR_31     83     D   short string/bytearray      VAL
+SERVUS_ARR_8         84     E   object array                CVAL
+SERVUS_ARR_16        85     E   object array                CVAL
+SERVUS_ARR_32        86     E   object array                CVAL
+SERVUS_S_ARR_00      87     E   short array                 CVAL
+SERVUS_S_ARR_15     102     E   short array                 CVAL
+SERVUS_MAP_8        103     F   map/obj                     CVAL
+SERVUS_MAP_16       104     F   map/obj                     CVAL
+SERVUS_MAP_32       105     F   map/obj                     CVAL
+SERVUS_S_MAP_00     106     F   short map                   CVAL
+SERVUS_S_MAP_15     121     F   short map                   CVAL
+SERVUS_TAG1_8       122     G   user type 1                 VAL
+SERVUS_TAG1_16      123     G   user type 1                 VAL
+SERVUS_TAG1_32      124     G   user type 1                 VAL
+SERVUS_S_TAG1_00    125     G   short user type 1           VAL
+SERVUS_S_TAG1_07    132     G   short user type 1           VAL
+SERVUS_TAG2_8       133     H   user type 2                 VAL
+SERVUS_TAG2_16      134     H   user type 2                 VAL
+SERVUS_TAG2_32      135     H   user type 2                 VAL
+SERVUS_S_TAG2_00    136     H   short user type 2           VAL
+SERVUS_S_TAG2_07    143     H   short user type 2           VAL
+SERVUS_SWITCH       144         switch                      CMD
+SERVUS_HEADER       145         optional header             CMD
+SERVUS_STATE_8      146         stateful 8                  CMD
+SERVUS_STATE_16     147         stateful 16                 CMD
+SERVUS_STATE_32     148         stateful 32                 CMD
+SERVUS_STATE_64     149         stateful 64                 CMD
+SERVUS_IMM_FIRST    150         immediate (-5)              VAL
+SERVUS_IMM_LAST     255         immediate (100)             VAL
 
-All reserved values:
-    SERVUS_RESERVED             always
-    SERVUS_SREF_START(0)        as first byte of the packet
+// other implicit constants
+SERVUS_IMM_LEN      105
+SERVUS_IMM_OFFSET   155
+SERVUS_S_REF_LEN     32
+SERVUS_S_BSTR_LEN    32
+SERVUS_S_MAP_LEN     16
+SERVUS_S_ARR_LEN     16
+SERVUS_S_TAG1_LEN     8
+SERVUS_S_TAG2_LEN     8
+
+// All reserved values
+SERVUS_RESERVED                 always
+SERVUS_S_REF_00                 as first byte of the packet
 
 ```
 
@@ -146,3 +186,17 @@ Stateful:
 - TBD
 
 
+### Todos (unsorted)
+
+* [ ] Document switch command
+* [ ] Document semantics
+* [ ] Finish the header definition
+* [ ] Define `strict` mode
+* [ ] Define `stateful` mode
+* [ ] Think about schemas / ideas:
+  * [ ] 'lite' schemas with follow C-Headers
+  * [ ] User LuaJIT as core part: schema-def-and-code-generator-from-schema
+* [ ] Build C sample
+* [ ] Build C# sample
+* [ ] Build JS/TS sample?
+* [ ] Allow switch semantics for byte arrays?
