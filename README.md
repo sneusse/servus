@@ -188,6 +188,8 @@ Stateful:
 
 ### Todos (unsorted)
 
+* [ ] Document packet layout
+* [ ] Draw some pictures
 * [ ] Document switch command
 * [ ] Document semantics
 * [ ] Finish the header definition
