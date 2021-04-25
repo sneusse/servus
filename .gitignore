@@ -1,1 +1,16 @@
 *.xlsx
+luajit/readme.md
+luajit/servus_benchmark/binser.lua
+luajit/servus_benchmark/bitser.lua
+luajit/servus_benchmark/BlobReader.lua
+luajit/servus_benchmark/BlobWriter.lua
+luajit/servus_benchmark/conf.lua
+luajit/servus_benchmark/main.lua
+luajit/servus_benchmark/pf_tempesta_seven_bold.ttf
+luajit/servus_benchmark/servus.lua
+luajit/servus_benchmark/tilemap.lua
+luajit/servus_benchmark/benchmarks/bitser.lua
+luajit/servus_benchmark/benchmarks/servus_default.lua
+luajit/servus_benchmark/benchmarks_disabled/binser.lua
+luajit/servus_benchmark/benchmarks_disabled/blob.lua
+luajit/servus_benchmark/benchmarks_disabled/servus_speed.lua

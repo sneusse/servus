@@ -26,9 +26,10 @@ Servus serializer spec and example implementation(s)
 
   
 ![https://xkcd.com/927/](https://imgs.xkcd.com/comics/standards.png)
+
 https://xkcd.com/927/
 
--- Todo: clarify.
+-- Todo: clarify more.
 
 # Draft
 
@@ -42,13 +43,16 @@ https://xkcd.com/927/
 
 ### Goals
 
-* Be able to encode immediate values from -2 -> 100
-* Be able to cache/reference values during (de)serialization
-* Have clearly defined extension points for
+* Small binary representation
+  * Be able to encode immediate values from -2 -> 100
+  * Be able to cache/reference values during (de)serialization
+* Have references
+* Have well defined extension points for
   * The spec
   * The encoder/decoders
 * Easy to implement
-* General purpose 
+* General purpose
+* Simple API (dump/load) like messagepack or json
 
 ### Maybe goals
 * Have schemas
@@ -66,6 +70,7 @@ Bits    7......0
 ```
 
 * No header assumes: 00000000 => Version 0 (this document), UTF8 strings, LE Byte order
+* This should be the default?
 
 * Control Byte:
     * First byte should be interpreted as _unsigned char_!
@@ -109,60 +114,60 @@ Bits    7......0
 ```
                       Cluster
                             |
-Label        Byte value     |   Type/interpreted value      Semantics
-===============================================================================       
-SERVUS_NULL           0     A   nil                         VAL
-SERVUS_TRUE           1     A   true                        VAL
-SERVUS_FALSE          2     A   false                       VAL
-SERVUS_RESERVED       3         -- reserved --               _RES
-SERVUS_INT_8          4     B   int8                        VAL
-SERVUS_INT_16         5     B   int16                       VAL
-SERVUS_INT_32         6     B   int32                       VAL
-SERVUS_INT_64         7     B   int64                       VAL
-SERVUS_UINT_8         8     B   uint8                       VAL
-SERVUS_UINT_16        9     B   uint16                      VAL
-SERVUS_UINT_32       10     B   uint32                      VAL
-SERVUS_UINT_64       11     B   uint64                      VAL
-SERVUS_FLOAT_32      12     B   float32                     VAL
-SERVUS_FLOAT_64      13     B   float64                     VAL
-SERVUS_REF_8         14     C   ref/reftable                REF/REFT
-SERVUS_REF_16        15     C   ref/reftable                REF/REFT
-SERVUS_REF_32        16     C   ref/reftable                REF/REFT
-SERVUS_S_REF_00      17     C   short ref/reftable          REF/REFT
-SERVUS_S_REF_31      48     C   short ref/reftable          REF/REFT
-SERVUS_BSTR_8        49     D   string/bytearray            VAL
-SERVUS_BSTR_16       50     D   string/bytearray            VAL
-SERVUS_BSTR_32       51     D   string/bytearray            VAL
-SERVUS_S_BSTR_00     52     D   short string/bytearray      VAL
-SERVUS_S_BSTR_31     83     D   short string/bytearray      VAL
-SERVUS_ARR_8         84     E   object array                CVAL
-SERVUS_ARR_16        85     E   object array                CVAL
-SERVUS_ARR_32        86     E   object array                CVAL
-SERVUS_S_ARR_00      87     E   short array                 CVAL
-SERVUS_S_ARR_15     102     E   short array                 CVAL
-SERVUS_MAP_8        103     F   map/obj                     CVAL
-SERVUS_MAP_16       104     F   map/obj                     CVAL
-SERVUS_MAP_32       105     F   map/obj                     CVAL
-SERVUS_S_MAP_00     106     F   short map                   CVAL
-SERVUS_S_MAP_15     121     F   short map                   CVAL
-SERVUS_TAG1_8       122     G   user type 1                 VAL
-SERVUS_TAG1_16      123     G   user type 1                 VAL
-SERVUS_TAG1_32      124     G   user type 1                 VAL
-SERVUS_S_TAG1_00    125     G   short user type 1           VAL
-SERVUS_S_TAG1_07    132     G   short user type 1           VAL
-SERVUS_TAG2_8       133     H   user type 2                 VAL
-SERVUS_TAG2_16      134     H   user type 2                 VAL
-SERVUS_TAG2_32      135     H   user type 2                 VAL
-SERVUS_S_TAG2_00    136     H   short user type 2           VAL
-SERVUS_S_TAG2_07    143     H   short user type 2           VAL
-SERVUS_SWITCH       144         switch                      CMD
-SERVUS_HEADER       145         optional header             CMD
-SERVUS_STATE_8      146         stateful 8                  CMD
-SERVUS_STATE_16     147         stateful 16                 CMD
-SERVUS_STATE_32     148         stateful 32                 CMD
-SERVUS_STATE_64     149         stateful 64                 CMD
-SERVUS_IMM_FIRST    150         immediate (-5)              VAL
-SERVUS_IMM_LAST     255         immediate (100)             VAL
+Label        Byte value     |   Type/interpreted value      Semantics   What's next?
+=======================================================================================       
+SERVUS_NULL           0     A   nil                         VAL         nothing
+SERVUS_TRUE           1     A   true                        VAL         nothing
+SERVUS_FALSE          2     A   false                       VAL         nothing
+SERVUS_RESERVED       3         -- reserved --               _RES       -- reserved --
+SERVUS_INT_8          4     B   int8                        VAL         1x int8 LE
+SERVUS_INT_16         5     B   int16                       VAL         1x int16 LE
+SERVUS_INT_32         6     B   int32                       VAL         1x int32 LE
+SERVUS_INT_64         7     B   int64                       VAL         1x int64 LE
+SERVUS_UINT_8         8     B   uint8                       VAL         1x uint8 LE
+SERVUS_UINT_16        9     B   uint16                      VAL         1x uint16 LE
+SERVUS_UINT_32       10     B   uint32                      VAL         1x uint32 LE
+SERVUS_UINT_64       11     B   uint64                      VAL         1x uint64 LE
+SERVUS_FLOAT_32      12     B   float32                     VAL         1x float
+SERVUS_FLOAT_64      13     B   float64                     VAL         1x double
+SERVUS_REF_8         14     C   ref/reftable                REF/REFT    1x uint8 LE
+SERVUS_REF_16        15     C   ref/reftable                REF/REFT    1x uint16 LE
+SERVUS_REF_32        16     C   ref/reftable                REF/REFT    1x uint32 LE
+SERVUS_S_REF_00      17     C   short ref/reftable          REF/REFT    nothing
+SERVUS_S_REF_31      48     C   short ref/reftable          REF/REFT    nothing
+SERVUS_BSTR_8        49     D   string/bytearray            VAL         1x uint8 LE, N bytes: N < 2^8
+SERVUS_BSTR_16       50     D   string/bytearray            VAL         1x uint16 LE, N bytes: N < 2^16
+SERVUS_BSTR_32       51     D   string/bytearray            VAL         1x uint32 LE, N bytes: N < 2^32
+SERVUS_S_BSTR_00     52     D   short string/bytearray      VAL         nothing (empty string)
+SERVUS_S_BSTR_31     83     D   short string/bytearray      VAL         N bytes: N < 32
+SERVUS_ARR_8         84     E   object array                CVAL        1x uint8 LE, N ITEMS: N < 2^8
+SERVUS_ARR_16        85     E   object array                CVAL        1x uint16 LE, N ITEMS: N < 2^16
+SERVUS_ARR_32        86     E   object array                CVAL        1x uint32 LE, N ITEMS: N < 2^32
+SERVUS_S_ARR_00      87     E   short array                 CVAL        nothing (empty array)
+SERVUS_S_ARR_15     102     E   short array                 CVAL        N ITEMS: N < 32
+SERVUS_MAP_8        103     F   map/obj                     CVAL        1x uint8 LE, N * 2 ITEMS (1x key, 1x val): N < 2^8
+SERVUS_MAP_16       104     F   map/obj                     CVAL        1x uint16 LE, N * 2 ITEMS (1x key, 1x val): N < 2^16
+SERVUS_MAP_32       105     F   map/obj                     CVAL        1x uint32 LE, N * 2 ITEMS (1x key, 1x val): N < 2^32
+SERVUS_S_MAP_00     106     F   short map                   CVAL        nothing (empty map)
+SERVUS_S_MAP_15     121     F   short map                   CVAL        N * 2 ITEMS (1x key, 1x val): N < 32
+SERVUS_TAG1_8       122     G   user type 1                 VAL         1x uint8 LE - handeled by the user or ignored
+SERVUS_TAG1_16      123     G   user type 1                 VAL         1x uint16 LE - handeled by the user or ignored
+SERVUS_TAG1_32      124     G   user type 1                 VAL         1x uint32 LE - handeled by the user or ignored
+SERVUS_S_TAG1_00    125     G   short user type 1           VAL         nothing
+SERVUS_S_TAG1_07    132     G   short user type 1           VAL         nothing
+SERVUS_TAG2_8       133     H   user type 2                 VAL         1x uint8 LE - handeled by the user or ignored         
+SERVUS_TAG2_16      134     H   user type 2                 VAL         1x uint16 LE - handeled by the user or ignored
+SERVUS_TAG2_32      135     H   user type 2                 VAL         1x uint32 LE - handeled by the user or ignored
+SERVUS_S_TAG2_00    136     H   short user type 2           VAL         nothing
+SERVUS_S_TAG2_07    143     H   short user type 2           VAL         nothing
+SERVUS_SWITCH       144         switch                      CMD         nothing*
+SERVUS_HEADER       145         optional header             CMD         TBD
+SERVUS_STATE_8      146         stateful 8                  CMD         TBD
+SERVUS_STATE_16     147         stateful 16                 CMD         TBD
+SERVUS_STATE_32     148         stateful 32                 CMD         TBD
+SERVUS_STATE_64     149         stateful 64                 CMD         TBD
+SERVUS_IMM_FIRST    150         immediate (-5)              VAL         nothing
+SERVUS_IMM_LAST     255         immediate (100)             VAL         nothing
 
 // other implicit constants
 SERVUS_IMM_LEN      105
@@ -197,8 +202,9 @@ Stateful:
 * [ ] Define `stateful` mode
 * [ ] Think about schemas / ideas:
   * [ ] 'lite' schemas with follow C-Headers
-  * [ ] User LuaJIT as core part: schema-def-and-code-generator-from-schema
+  * [ ] Use LuaJIT as core part: schema-def-and-code-generator-from-schema
 * [ ] Build C sample
 * [ ] Build C# sample
 * [ ] Build JS/TS sample?
+* [x] Build LuaJIT example
 * [ ] Allow switch semantics for byte arrays?
