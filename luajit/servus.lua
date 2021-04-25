@@ -498,9 +498,7 @@ local function create(params)
         local newsize = pos + extra
         if newsize > capacity then
             local mem, capa = allocator(write_buffer, newsize, capacity)
-            write_buffer = ffi.cast(_byte_ptr, mem)
-            capacity = capa
-            write_buffer = write_buffer
+            write_buffer = mem
             capacity = capa
         end
 
