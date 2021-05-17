@@ -193,6 +193,9 @@ Stateful:
 
 ### Todos (unsorted)
 
+* [ ] combine map and array to one command and force a switch?
+* [ ] move the ref data to the back?
+* [ ] big ref mode without prepending a table and using byte offset as address?
 * [ ] Document packet layout
 * [ ] Draw some pictures
 * [ ] Document switch command
